@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: your_root_password
+      MYSQL_DATABASE: airflow
+      MYSQL_USER: airflow
+      MYSQL_PASSWORD: airflow_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  airflow-webserver:
+    image: apache/airflow:2.6.0
+    restart: always
+    depends_on:
+      - mysql
+      - airflow-scheduler
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=mysql+mysqlconnector://airflow:airflow_password@mysql:3306/airflow
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${SECRET_KEY}
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    ports:
+      - "8080:8080"
+    command: webserver
+
+  airflow-scheduler:
+    image: apache/airflow:2.6.0
+    restart: always
+    depends_on:
+      - mysql
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=mysql+mysqlconnector://airflow:airflow_password@mysql:3306/airflow
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    command: scheduler
+
+  airflow-worker:
+    image: apache/airflow:2.6.0
+    restart: always
+    depends_on:
+      - mysql
+      - airflow-scheduler
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__CORE__FERNET_KEY=${FERNET_KEY}
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=mysql+mysqlconnector://airflow:airflow_password@mysql:3306/airflow
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+    command: celery worker
+
+volumes:
+  mysql_data:
